@@ -1,18 +1,544 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Film, Users, TicketIcon, DollarSign } from "lucide-react";
-import Navigation from "@/components/navigation";
-import ShowModal from "@/components/show-modal";
-import ClientModal from "@/components/client-modal";
-import SeatMap from "@/components/seat-map";
+import { Film, Users, TicketIcon, DollarSign, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { apiRequest } from "@/lib/queryClient";
-import type { Espetaculo, Cliente } from "@shared/schema";
+import type { Espetaculo, Cliente, InsertEspetaculo, InsertCliente } from "@shared/schema";
+
+interface DashboardMetrics {
+  totalEspetaculos: number;
+  totalClientes: number;
+  ingressosVendidos: number;
+  receitaTotal: number;
+}
+
+// Navigation Component
+interface NavigationProps {
+  activeTab: string;
+  onTabChange: (tab: string) => void;
+}
+
+function Navigation({ activeTab, onTabChange }: NavigationProps) {
+  const tabs = [
+    { id: "dashboard", label: "Dashboard" },
+    { id: "espetaculos", label: "Espetáculos" },
+    { id: "clientes", label: "Clientes" },
+    { id: "ingressos", label: "Ingressos" },
+  ];
+
+  return (
+    <nav className="bg-navy-800 border-b border-navy-700" data-testid="navigation">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between items-center h-16">
+          <div className="flex items-center space-x-3" data-testid="logo">
+            <div className="w-8 h-8 bg-red-500 rounded flex items-center justify-center">
+              <Film className="text-white w-5 h-5" />
+            </div>
+            <span className="text-xl font-bold text-white">Cineminha</span>
+          </div>
+          
+          <div className="flex space-x-8">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => onTabChange(tab.id)}
+                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${
+                  activeTab === tab.id
+                    ? "text-white bg-navy-700"
+                    : "text-slate-300 hover:text-white hover:bg-navy-700"
+                }`}
+                data-testid={`tab-${tab.id}`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </nav>
+  );
+}
+
+// Show Modal Component
+interface ShowModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSubmit: (data: InsertEspetaculo) => void;
+  isLoading: boolean;
+}
+
+function ShowModal({ open, onOpenChange, onSubmit, isLoading }: ShowModalProps) {
+  const [formData, setFormData] = useState({
+    nome: "",
+    data: "",
+    horario: "",
+    preco: "",
+    totalAssentos: "",
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSubmit({
+      nome: formData.nome,
+      data: formData.data,
+      horario: formData.horario,
+      preco: formData.preco,
+      totalAssentos: parseInt(formData.totalAssentos),
+    });
+    setFormData({
+      nome: "",
+      data: "",
+      horario: "",
+      preco: "",
+      totalAssentos: "",
+    });
+  };
+
+  const handleChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="bg-navy-800 border-navy-700 text-white max-w-2xl" data-testid="modal-show">
+        <DialogHeader>
+          <div className="flex justify-between items-center">
+            <DialogTitle className="text-2xl font-bold text-white">
+              Cadastrar Novo Espetáculo
+            </DialogTitle>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onOpenChange(false)}
+              className="text-slate-400 hover:text-white"
+              data-testid="button-close-show-modal"
+            >
+              <X className="w-5 h-5" />
+            </Button>
+          </div>
+        </DialogHeader>
+        
+        <form onSubmit={handleSubmit} className="space-y-6" data-testid="form-create-show">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <Label className="text-slate-300">Nome do Espetáculo</Label>
+              <Input
+                placeholder="Ex: O Rei Leão"
+                value={formData.nome}
+                onChange={(e) => handleChange("nome", e.target.value)}
+                className="bg-navy-700 border-navy-600 text-white placeholder-slate-400"
+                required
+                data-testid="input-show-name"
+              />
+            </div>
+            <div>
+              <Label className="text-slate-300">Data</Label>
+              <Input
+                type="date"
+                value={formData.data}
+                onChange={(e) => handleChange("data", e.target.value)}
+                className="bg-navy-700 border-navy-600 text-white"
+                required
+                data-testid="input-show-date"
+              />
+            </div>
+            <div>
+              <Label className="text-slate-300">Horário</Label>
+              <Input
+                type="time"
+                value={formData.horario}
+                onChange={(e) => handleChange("horario", e.target.value)}
+                className="bg-navy-700 border-navy-600 text-white"
+                required
+                data-testid="input-show-time"
+              />
+            </div>
+            <div>
+              <Label className="text-slate-300">Preço do Ingresso</Label>
+              <div className="relative">
+                <span className="absolute left-3 top-2.5 text-slate-400">R$</span>
+                <Input
+                  type="number"
+                  step="0.01"
+                  placeholder="0,00"
+                  value={formData.preco}
+                  onChange={(e) => handleChange("preco", e.target.value)}
+                  className="bg-navy-700 border-navy-600 text-white placeholder-slate-400 pl-8"
+                  required
+                  data-testid="input-show-price"
+                />
+              </div>
+            </div>
+            <div className="md:col-span-2">
+              <Label className="text-slate-300">Total de Assentos</Label>
+              <Input
+                type="number"
+                min="1"
+                max="200"
+                placeholder="50"
+                value={formData.totalAssentos}
+                onChange={(e) => handleChange("totalAssentos", e.target.value)}
+                className="bg-navy-700 border-navy-600 text-white placeholder-slate-400"
+                required
+                data-testid="input-show-seats"
+              />
+            </div>
+          </div>
+          
+          <div className="flex space-x-4 pt-4">
+            <Button
+              type="button"
+              variant="secondary"
+              className="flex-1 bg-navy-700 hover:bg-navy-600"
+              onClick={() => onOpenChange(false)}
+              data-testid="button-cancel-show"
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              className="flex-1 bg-red-500 hover:bg-red-600"
+              disabled={isLoading}
+              data-testid="button-submit-show"
+            >
+              {isLoading ? "Cadastrando..." : "Cadastrar Espetáculo"}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// Client Modal Component
+interface ClientModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSubmit: (data: InsertCliente) => void;
+  isLoading: boolean;
+}
+
+function ClientModal({ open, onOpenChange, onSubmit, isLoading }: ClientModalProps) {
+  const [formData, setFormData] = useState({
+    nome: "",
+    cpf: "",
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSubmit(formData);
+    setFormData({
+      nome: "",
+      cpf: "",
+    });
+  };
+
+  const handleChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const formatCPF = (value: string) => {
+    const numbers = value.replace(/\D/g, "");
+    if (numbers.length <= 11) {
+      return numbers.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+    }
+    return value;
+  };
+
+  const handleCPFChange = (value: string) => {
+    const formatted = formatCPF(value);
+    handleChange("cpf", formatted);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="bg-navy-800 border-navy-700 text-white max-w-lg" data-testid="modal-client">
+        <DialogHeader>
+          <div className="flex justify-between items-center">
+            <DialogTitle className="text-2xl font-bold text-white">
+              Cadastrar Novo Cliente
+            </DialogTitle>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onOpenChange(false)}
+              className="text-slate-400 hover:text-white"
+              data-testid="button-close-client-modal"
+            >
+              <X className="w-5 h-5" />
+            </Button>
+          </div>
+        </DialogHeader>
+        
+        <form onSubmit={handleSubmit} className="space-y-6" data-testid="form-create-client">
+          <div>
+            <Label className="text-slate-300">Nome Completo</Label>
+            <Input
+              placeholder="Ex: Maria Silva"
+              value={formData.nome}
+              onChange={(e) => handleChange("nome", e.target.value)}
+              className="bg-navy-700 border-navy-600 text-white placeholder-slate-400"
+              required
+              data-testid="input-client-name"
+            />
+          </div>
+          <div>
+            <Label className="text-slate-300">CPF</Label>
+            <Input
+              placeholder="000.000.000-00"
+              value={formData.cpf}
+              onChange={(e) => handleCPFChange(e.target.value)}
+              className="bg-navy-700 border-navy-600 text-white placeholder-slate-400"
+              required
+              data-testid="input-client-cpf"
+            />
+          </div>
+          
+          <div className="flex space-x-4 pt-4">
+            <Button
+              type="button"
+              variant="secondary"
+              className="flex-1 bg-navy-700 hover:bg-navy-600"
+              onClick={() => onOpenChange(false)}
+              data-testid="button-cancel-client"
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              className="flex-1 bg-blue-500 hover:bg-blue-600"
+              disabled={isLoading}
+              data-testid="button-submit-client"
+            >
+              {isLoading ? "Cadastrando..." : "Cadastrar Cliente"}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// Seat Map Component
+interface SeatMapProps {
+  show: Espetaculo;
+  clients: Cliente[];
+  onTicketSold: () => void;
+}
+
+function SeatMap({ show, clients, onTicketSold }: SeatMapProps) {
+  const [selectedSeat, setSelectedSeat] = useState<number | null>(null);
+  const [clientCPF, setClientCPF] = useState("");
+  const [ticketType, setTicketType] = useState("inteira");
+  const queryClient = useQueryClient();
+
+  const assentosOcupados = JSON.parse(show.assentosOcupados || "[]");
+  const basePrice = parseFloat(show.preco);
+
+  const calculatePrice = () => {
+    switch (ticketType) {
+      case "meia":
+        return basePrice * 0.5;
+      case "professor":
+        return basePrice * 0.3;
+      default:
+        return basePrice;
+    }
+  };
+
+  const createSaleMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await apiRequest("POST", "/api/vendas", data);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/espetaculos"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/metrics"] });
+      setSelectedSeat(null);
+      setClientCPF("");
+      onTicketSold();
+    },
+  });
+
+  const findClientByCPF = async () => {
+    try {
+      const response = await apiRequest("GET", `/api/clientes/cpf/${clientCPF.replace(/\D/g, "")}`);
+      return await response.json();
+    } catch {
+      return null;
+    }
+  };
+
+  const handleConfirmPurchase = async () => {
+    if (!selectedSeat || !clientCPF) return;
+
+    try {
+      const client = await findClientByCPF();
+      if (!client) {
+        alert("Cliente não encontrado. Cadastre o cliente primeiro.");
+        return;
+      }
+
+      await createSaleMutation.mutateAsync({
+        espetaculoId: show.id,
+        clienteId: client.id,
+        assento: selectedSeat,
+        tipoIngresso: ticketType,
+        precoFinal: calculatePrice(),
+      });
+    } catch (error) {
+      alert("Erro ao processar venda. Tente novamente.");
+    }
+  };
+
+  const renderSeat = (seatNumber: number) => {
+    const isOccupied = assentosOcupados.includes(seatNumber);
+    const isSelected = selectedSeat === seatNumber;
+
+    return (
+      <button
+        key={seatNumber}
+        onClick={() => !isOccupied && setSelectedSeat(seatNumber)}
+        className={`w-8 h-8 rounded text-xs font-medium flex items-center justify-center transition-colors ${
+          isOccupied
+            ? "bg-red-500 cursor-not-allowed text-white"
+            : isSelected
+            ? "bg-blue-500 text-white"
+            : "bg-green-500 hover:bg-green-400 text-white cursor-pointer"
+        }`}
+        disabled={isOccupied}
+        data-testid={`seat-${seatNumber}`}
+      >
+        {seatNumber}
+      </button>
+    );
+  };
+
+  const renderSeatMap = () => {
+    const rows = [];
+    const seatsPerRow = 10;
+    const totalRows = Math.ceil(show.totalAssentos / seatsPerRow);
+
+    for (let row = 0; row < totalRows; row++) {
+      const rowSeats = [];
+      for (let seat = 1; seat <= seatsPerRow; seat++) {
+        const seatNumber = row * seatsPerRow + seat;
+        if (seatNumber <= show.totalAssentos) {
+          rowSeats.push(renderSeat(seatNumber));
+        }
+      }
+      rows.push(
+        <div key={row} className="flex justify-center space-x-2">
+          {rowSeats}
+        </div>
+      );
+    }
+
+    return rows;
+  };
+
+  return (
+    <Card className="bg-navy-800 border-navy-700" data-testid="seat-selection">
+      <CardContent className="p-6">
+        <h3 className="text-lg font-semibold text-white mb-4">Seleção de Assentos</h3>
+        
+        {/* Theater Screen */}
+        <div className="flex justify-center mb-6">
+          <div className="bg-slate-300 text-navy-900 px-8 py-2 rounded-lg text-sm font-medium">
+            PALCO
+          </div>
+        </div>
+
+        {/* Seat Map */}
+        <div className="max-w-2xl mx-auto mb-6">
+          <div className="space-y-2" data-testid="seat-map">
+            {renderSeatMap()}
+          </div>
+        </div>
+
+        {/* Legend */}
+        <div className="flex justify-center space-x-8 mb-6 text-sm">
+          <div className="flex items-center space-x-2">
+            <div className="w-4 h-4 bg-green-500 rounded"></div>
+            <span className="text-slate-300">Disponível</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <div className="w-4 h-4 bg-blue-500 rounded"></div>
+            <span className="text-slate-300">Selecionado</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <div className="w-4 h-4 bg-red-500 rounded"></div>
+            <span className="text-slate-300">Ocupado</span>
+          </div>
+        </div>
+
+        {/* Client and Ticket Info */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-4">
+            <h4 className="text-white font-medium">Informações do Cliente</h4>
+            <div>
+              <Label className="text-slate-300">CPF do Cliente</Label>
+              <Input
+                placeholder="000.000.000-00"
+                value={clientCPF}
+                onChange={(e) => setClientCPF(e.target.value)}
+                className="bg-navy-700 border-navy-600 text-white placeholder-slate-400"
+                data-testid="input-client-cpf-sale"
+              />
+            </div>
+          </div>
+          
+          <div className="space-y-4">
+            <h4 className="text-white font-medium">Detalhes da Compra</h4>
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-300">Assento selecionado:</span>
+                <span className="text-white" data-testid="selected-seat-display">
+                  {selectedSeat || "-"}
+                </span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-300">Tipo de ingresso:</span>
+                <Select value={ticketType} onValueChange={setTicketType}>
+                  <SelectTrigger className="bg-navy-700 border-navy-600 text-white w-32 h-8 text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="inteira">Inteira</SelectItem>
+                    <SelectItem value="meia">Meia</SelectItem>
+                    <SelectItem value="professor">Professor</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-300">Preço:</span>
+                <span className="text-green-400 font-medium" data-testid="final-price">
+                  R$ {calculatePrice().toFixed(2).replace(".", ",")}
+                </span>
+              </div>
+            </div>
+            
+            <Button
+              onClick={handleConfirmPurchase}
+              disabled={!selectedSeat || !clientCPF || createSaleMutation.isPending}
+              className="w-full bg-green-500 hover:bg-green-600"
+              data-testid="button-confirm-purchase"
+            >
+              {createSaleMutation.isPending ? "Processando..." : "Confirmar Compra"}
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -24,7 +550,7 @@ export default function Dashboard() {
   const queryClient = useQueryClient();
 
   // Dashboard metrics query
-  const { data: metrics, isLoading: metricsLoading } = useQuery({
+  const { data: metrics, isLoading: metricsLoading } = useQuery<DashboardMetrics>({
     queryKey: ["/api/dashboard/metrics"],
     enabled: activeTab === "dashboard",
   });
@@ -43,7 +569,7 @@ export default function Dashboard() {
 
   // Create show mutation
   const createShowMutation = useMutation({
-    mutationFn: async (data: any) => {
+    mutationFn: async (data: InsertEspetaculo) => {
       const response = await apiRequest("POST", "/api/espetaculos", data);
       return response.json();
     },
@@ -56,7 +582,7 @@ export default function Dashboard() {
 
   // Create client mutation
   const createClientMutation = useMutation({
-    mutationFn: async (data: any) => {
+    mutationFn: async (data: InsertCliente) => {
       const response = await apiRequest("POST", "/api/clientes", data);
       return response.json();
     },
