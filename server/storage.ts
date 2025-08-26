@@ -240,6 +240,85 @@ export class MemStorage implements IStorage {
 
 // Database Storage Implementation
 export class DatabaseStorage implements IStorage {
+  
+  async initializeDatabase() {
+    // Create tables if they don't exist and add sample data
+    try {
+      // Test connection first
+      const testResult = await db.select().from(espetaculos).limit(1);
+      
+      // Check if we have data, if not initialize sample data
+      const existingShows = await db.select().from(espetaculos);
+      
+      if (existingShows.length === 0) {
+        console.log('Initializing database with sample data...');
+        await this.insertSampleData();
+      }
+      
+    } catch (error) {
+      throw new Error(`Database initialization failed: ${error}`);
+    }
+  }
+  
+  private async insertSampleData() {
+    // Sample shows from Java initialization
+    const sampleShows: InsertEspetaculo[] = [
+      {
+        nome: "A Fantástica Fábrica de Chocolate",
+        data: "15/05/2024",
+        horario: "19h30",
+        preco: "30.00",
+        totalAssentos: 50,
+      },
+      {
+        nome: "Castelo Rá-Tim-Bum",
+        data: "30/05/2024",
+        horario: "20h30",
+        preco: "50.00",
+        totalAssentos: 50,
+      },
+      {
+        nome: "A Branca de Neve",
+        data: "02/03/2025",
+        horario: "21h30",
+        preco: "35.00",
+        totalAssentos: 50,
+      },
+    ];
+
+    for (const show of sampleShows) {
+      // Create the show
+      const createdShow = await this.createEspetaculo(show);
+      
+      // Create some sample sales for each show
+      const ticketsSold = Math.floor(Math.random() * 10) + 5; // 5-14 tickets
+      
+      for (let i = 0; i < ticketsSold; i++) {
+        // Create sample client
+        const client = await this.createCliente({
+          nome: `Cliente ${i + 1} - ${show.nome.split(' ')[0]}`,
+          cpf: `${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}.${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}.${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}-${String(Math.floor(Math.random() * 100)).padStart(2, '0')}`
+        });
+        
+        // Create sale
+        await this.createVenda({
+          espetaculoId: createdShow.id,
+          clienteId: client.id,
+          assento: Math.floor(Math.random() * show.totalAssentos) + 1,
+          tipoIngresso: "inteira",
+          precoFinal: show.preco
+        });
+      }
+      
+      // Update show with occupied seats
+      const sales = await this.getVendasByEspetaculo(createdShow.id);
+      const assentosOcupados = sales.map(s => s.assento).filter((seat): seat is number => seat !== undefined);
+      
+      await this.updateEspetaculo(createdShow.id, {
+        assentosOcupados: JSON.stringify(assentosOcupados)
+      });
+    }
+  }
   async getEspetaculos(): Promise<Espetaculo[]> {
     return await db.select().from(espetaculos);
   }
@@ -417,5 +496,34 @@ export class DatabaseStorage implements IStorage {
   }
 }
 
-// Use MemStorage for now, can be switched to DatabaseStorage when needed
-export const storage = new MemStorage();
+// Initialize storage with fallback mechanism
+let storageInstance: IStorage;
+
+async function initializeStorage(): Promise<IStorage> {
+  try {
+    // Test database connection
+    const databaseStorage = new DatabaseStorage();
+    
+    // Try to create tables and initialize data
+    await databaseStorage.initializeDatabase();
+    console.log('✅ Connected to Supabase database successfully');
+    return databaseStorage;
+    
+  } catch (error) {
+    console.log('⚠️ Database connection failed, using in-memory storage:', error instanceof Error ? error.message : error);
+    return new MemStorage();
+  }
+}
+
+// Initialize storage asynchronously
+const storagePromise = initializeStorage();
+
+export const getStorage = async (): Promise<IStorage> => {
+  if (!storageInstance) {
+    storageInstance = await storagePromise;
+  }
+  return storageInstance;
+};
+
+// For backward compatibility, but will require await
+export const storage = new MemStorage(); // Temporary fallback
