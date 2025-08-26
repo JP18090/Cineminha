@@ -153,6 +153,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Test database connection and initialize data
+  app.post("/api/init-db", async (req, res) => {
+    try {
+      // Test if we can access database
+      if ('initializeData' in storage) {
+        await (storage as any).initializeData();
+        res.json({ success: true, message: "Database initialized with sample data" });
+      } else {
+        res.json({ success: false, message: "Using in-memory storage" });
+      }
+    } catch (error) {
+      res.status(500).json({ success: false, message: `Error: ${error}` });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

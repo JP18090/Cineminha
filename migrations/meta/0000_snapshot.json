@@ -1,0 +1,206 @@
+{
+  "id": "51695f55-3e89-4a6b-bc95-3f4b3044a7d6",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.clientes": {
+      "name": "clientes",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "nome": {
+          "name": "nome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "cpf": {
+          "name": "cpf",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "historico_compras": {
+          "name": "historico_compras",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'[]'"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "clientes_cpf_unique": {
+          "name": "clientes_cpf_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "cpf"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.espetaculos": {
+      "name": "espetaculos",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "nome": {
+          "name": "nome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "data": {
+          "name": "data",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "horario": {
+          "name": "horario",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "preco": {
+          "name": "preco",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "total_assentos": {
+          "name": "total_assentos",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "assentos_ocupados": {
+          "name": "assentos_ocupados",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'[]'"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.vendas": {
+      "name": "vendas",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "espetaculo_id": {
+          "name": "espetaculo_id",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "cliente_id": {
+          "name": "cliente_id",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "assento": {
+          "name": "assento",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tipo_ingresso": {
+          "name": "tipo_ingresso",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "preco_final": {
+          "name": "preco_final",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "data_venda": {
+          "name": "data_venda",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "vendas_espetaculo_id_espetaculos_id_fk": {
+          "name": "vendas_espetaculo_id_espetaculos_id_fk",
+          "tableFrom": "vendas",
+          "tableTo": "espetaculos",
+          "columnsFrom": [
+            "espetaculo_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "vendas_cliente_id_clientes_id_fk": {
+          "name": "vendas_cliente_id_clientes_id_fk",
+          "tableFrom": "vendas",
+          "tableTo": "clientes",
+          "columnsFrom": [
+            "cliente_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}
