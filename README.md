@@ -41,7 +41,62 @@ Projeto/
 
 ```
 ## UML do projeto
-![image](https://github.com/user-attachments/assets/8625f7a1-dd68-4897-8778-8703272be409)
+
+```plantuml
+@startuml
+
+class CineminhaApp {
+    - espetaculos: List<Espectaculo>
+    - listaClientes: List<Cliente>
+    - entrada: Scanner
+    + main(args: String[]): void
+}
+
+class Cliente {
+    - nome: String
+    - tipoIngresso: String
+    + getNome(): String
+    + setNome(nome: String): void
+    + getTipoIngresso(): String
+    + setTipoIngresso(tipo: String): void
+}
+
+class Espectaculo {
+    - nome: String
+    - horario: String
+    - lugaresDisponiveis: int
+    - preco: double
+    + getNome(): String
+    + setNome(nome: String): void
+    + getHorario(): String
+    + setHorario(horario: String): void
+    + getLugaresDisponiveis(): int
+    + setLugaresDisponiveis(lugares: int): void
+    + getPreco(): double
+    + setPreco(preco: double): void
+    + reservarLugar(): boolean
+}
+
+class Menu {
+    + inicializarEspectaculos(List<Espectaculo>): void
+    + menuPrincipal(List<Espectaculo>, List<Cliente>, Scanner): void
+    + exibirEspectaculos(List<Espectaculo>): void
+    + comprarIngresso(List<Espectaculo>, List<Cliente>, Scanner): void
+}
+
+class Operacoes {
+    + cadastrarEspetaculo(espetaculos: List<Espectaculo>): void
+    + menuClientes(listaClientes: List<Cliente>): void
+    + cadastrarNovoCliente(listaClientes: List<Cliente>): void
+    + exibirCliente(cliente: Cliente): void
+}
+
+CineminhaApp --> Menu
+CineminhaApp --> Espectaculo
+CineminhaApp --> Cliente
+
+@enduml
+```
 
 ## 🚀 Melhorias Futuras
 
