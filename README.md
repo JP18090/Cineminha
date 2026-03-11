@@ -38,7 +38,7 @@ O **CineminhaApp** permite:
 ```bash
 Projeto/
 ├── CineminhaApp.java       # Classe principal
-├── Cliente.java            # Representa um cliente
+├── Cliente.java            # Representa a entidade cliente
 ├── Espetaculo.java         # Representa um espetáculo
 ├── Menu.java               # Menu de interação
 ├── Operacoes.java          # Métodos auxiliares
