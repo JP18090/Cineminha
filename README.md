@@ -40,7 +40,7 @@ Projeto/
 ├── CineminhaApp.java       # Classe principal
 ├── Cliente.java            # Representa um cliente
 ├── Espetaculo.java         # Representa um espetáculo
-├── Menu.java               # Menus de interação
+├── Menu.java               # Menu de interação
 ├── Operacoes.java          # Métodos auxiliares
 
 server/
