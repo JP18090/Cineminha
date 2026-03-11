@@ -39,7 +39,7 @@ O **CineminhaApp** permite:
 Projeto/
 ├── CineminhaApp.java       # Classe principal
 ├── Cliente.java            # Representa a entidade cliente
-├── Espetaculo.java         # Representa um espetáculo
+├── Espetaculo.java         # Representa a entidade um espetáculo
 ├── Menu.java               # Menu de interação
 ├── Operacoes.java          # Métodos auxiliares
 
