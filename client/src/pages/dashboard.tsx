@@ -329,12 +329,11 @@ function ClientModal({ open, onOpenChange, onSubmit, isLoading }: ClientModalPro
 // Seat Map Component
 interface SeatMapProps {
   show: Espetaculo;
-  clients: Cliente[];
   onTicketSold: () => void;
 }
 
-function SeatMap({ show, clients, onTicketSold }: SeatMapProps) {
-  const [selectedSeat, setSelectedSeat] = useState<number | null>(null);
+function SeatMap({ show, onTicketSold }: SeatMapProps) {
+  const [selectedSeats, setSelectedSeats] = useState<number[]>([]);
   const [clientCPF, setClientCPF] = useState("");
   const [ticketType, setTicketType] = useState("inteira");
   const queryClient = useQueryClient();
@@ -361,7 +360,8 @@ function SeatMap({ show, clients, onTicketSold }: SeatMapProps) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/espetaculos"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/metrics"] });
-      setSelectedSeat(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/clientes"] });
+      setSelectedSeats([]);
       setClientCPF("");
       onTicketSold();
     },
@@ -377,7 +377,7 @@ function SeatMap({ show, clients, onTicketSold }: SeatMapProps) {
   };
 
   const handleConfirmPurchase = async () => {
-    if (!selectedSeat || !clientCPF) return;
+    if (selectedSeats.length === 0 || !clientCPF) return;
 
     try {
       const client = await findClientByCPF();
@@ -389,23 +389,35 @@ function SeatMap({ show, clients, onTicketSold }: SeatMapProps) {
       await createSaleMutation.mutateAsync({
         espetaculoId: show.id,
         clienteId: client.id,
-        assento: selectedSeat,
+        assentos: selectedSeats,
         tipoIngresso: ticketType,
         precoFinal: calculatePrice(),
       });
     } catch (error) {
+      if (error instanceof Error && error.message.includes("409")) {
+        alert("Um ou mais assentos já foram vendidos. Atualize e selecione novamente.");
+        return;
+      }
       alert("Erro ao processar venda. Tente novamente.");
     }
   };
 
+  const toggleSeat = (seatNumber: number) => {
+    setSelectedSeats((previous) =>
+      previous.includes(seatNumber)
+        ? previous.filter((seat) => seat !== seatNumber)
+        : [...previous, seatNumber].sort((a, b) => a - b),
+    );
+  };
+
   const renderSeat = (seatNumber: number) => {
     const isOccupied = assentosOcupados.includes(seatNumber);
-    const isSelected = selectedSeat === seatNumber;
+    const isSelected = selectedSeats.includes(seatNumber);
 
     return (
       <button
         key={seatNumber}
-        onClick={() => !isOccupied && setSelectedSeat(seatNumber)}
+        onClick={() => !isOccupied && toggleSeat(seatNumber)}
         className={`w-8 h-8 rounded text-xs font-medium flex items-center justify-center transition-colors ${
           isOccupied
             ? "bg-red-500 cursor-not-allowed text-white"
@@ -499,9 +511,15 @@ function SeatMap({ show, clients, onTicketSold }: SeatMapProps) {
             <h4 className="text-white font-medium">Detalhes da Compra</h4>
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
-                <span className="text-slate-300">Assento selecionado:</span>
+                <span className="text-slate-300">Assentos selecionados:</span>
                 <span className="text-white" data-testid="selected-seat-display">
-                  {selectedSeat || "-"}
+                  {selectedSeats.length > 0 ? selectedSeats.join(", ") : "-"}
+                </span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-300">Quantidade:</span>
+                <span className="text-white" data-testid="selected-seat-count">
+                  {selectedSeats.length}
                 </span>
               </div>
               <div className="flex justify-between text-sm">
@@ -520,14 +538,14 @@ function SeatMap({ show, clients, onTicketSold }: SeatMapProps) {
               <div className="flex justify-between text-sm">
                 <span className="text-slate-300">Preço:</span>
                 <span className="text-green-400 font-medium" data-testid="final-price">
-                  R$ {calculatePrice().toFixed(2).replace(".", ",")}
+                  R$ {(calculatePrice() * selectedSeats.length).toFixed(2).replace(".", ",")}
                 </span>
               </div>
             </div>
             
             <Button
               onClick={handleConfirmPurchase}
-              disabled={!selectedSeat || !clientCPF || createSaleMutation.isPending}
+              disabled={selectedSeats.length === 0 || !clientCPF || createSaleMutation.isPending}
               className="w-full bg-green-500 hover:bg-green-600"
               data-testid="button-confirm-purchase"
             >
@@ -544,6 +562,8 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [showModal, setShowModal] = useState(false);
   const [clientModal, setClientModal] = useState(false);
+  const [historyModalOpen, setHistoryModalOpen] = useState(false);
+  const [selectedClient, setSelectedClient] = useState<Cliente | null>(null);
   const [selectedShow, setSelectedShow] = useState<Espetaculo | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [clientSearchQuery, setClientSearchQuery] = useState("");
@@ -564,7 +584,7 @@ export default function Dashboard() {
   // Clients query
   const { data: clients = [], isLoading: clientsLoading } = useQuery<Cliente[]>({
     queryKey: ["/api/clientes"],
-    enabled: activeTab === "clientes",
+    enabled: true,
   });
 
   // Create show mutation
@@ -777,19 +797,18 @@ export default function Dashboard() {
                 <TableHead className="text-slate-300">Preço</TableHead>
                 <TableHead className="text-slate-300">Assentos</TableHead>
                 <TableHead className="text-slate-300">Status</TableHead>
-                <TableHead className="text-slate-300">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {showsLoading ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-slate-400">
+                  <TableCell colSpan={6} className="text-center text-slate-400">
                     Carregando...
                   </TableCell>
                 </TableRow>
               ) : filteredShows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-slate-400">
+                  <TableCell colSpan={6} className="text-center text-slate-400">
                     Nenhum espetáculo encontrado
                   </TableCell>
                 </TableRow>
@@ -816,16 +835,6 @@ export default function Dashboard() {
                       <Badge className="bg-green-500 bg-opacity-20 text-green-400">
                         Disponível
                       </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex space-x-2">
-                        <Button variant="ghost" size="sm" className="text-blue-400 hover:text-blue-300" data-testid={`button-view-show-${show.id}`}>
-                          👁️
-                        </Button>
-                        <Button variant="ghost" size="sm" className="text-amber-400 hover:text-amber-300" data-testid={`button-edit-show-${show.id}`}>
-                          ✏️
-                        </Button>
-                      </div>
                     </TableCell>
                   </TableRow>
                 ))
@@ -897,7 +906,16 @@ export default function Dashboard() {
                     </div>
                   </div>
                   <div className="flex space-x-2">
-                    <Button variant="secondary" size="sm" className="flex-1 bg-navy-700 hover:bg-navy-600" data-testid={`button-view-client-${client.id}`}>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="flex-1 bg-navy-700 hover:bg-navy-600"
+                      onClick={() => {
+                        setSelectedClient(client);
+                        setHistoryModalOpen(true);
+                      }}
+                      data-testid={`button-view-client-${client.id}`}
+                    >
                       Ver Histórico
                     </Button>
                     <Button variant="ghost" size="sm" className="text-amber-400 hover:text-amber-300" data-testid={`button-edit-client-${client.id}`}>
@@ -955,9 +973,10 @@ export default function Dashboard() {
       </Card>
 
       {selectedShow && (
-        <SeatMap show={selectedShow} clients={clients} onTicketSold={() => {
+        <SeatMap show={selectedShow} onTicketSold={() => {
           queryClient.invalidateQueries({ queryKey: ["/api/espetaculos"] });
           queryClient.invalidateQueries({ queryKey: ["/api/dashboard/metrics"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/clientes"] });
         }} />
       )}
     </div>
@@ -987,6 +1006,49 @@ export default function Dashboard() {
         onSubmit={(data) => createClientMutation.mutate(data)}
         isLoading={createClientMutation.isPending}
       />
+
+      <Dialog open={historyModalOpen} onOpenChange={setHistoryModalOpen}>
+        <DialogContent className="bg-navy-800 border-navy-700 text-white max-w-lg" data-testid="modal-client-history">
+          <DialogHeader>
+            <DialogTitle>
+              Histórico de Compras {selectedClient ? `- ${selectedClient.nome}` : ""}
+            </DialogTitle>
+          </DialogHeader>
+
+          {selectedClient ? (
+            (() => {
+              const historico = JSON.parse(selectedClient.historicoCompras || "[]") as number[];
+              const totalSpent = historico.reduce((sum, value) => sum + value, 0);
+              return (
+                <div className="space-y-4">
+                  <p className="text-slate-300 text-sm">CPF: {selectedClient.cpf}</p>
+                  <div className="bg-navy-700 rounded-md p-3">
+                    <p className="text-slate-300 text-sm">Compras realizadas: {historico.length}</p>
+                    <p className="text-green-400 font-medium">Total gasto: R$ {totalSpent.toFixed(2).replace(".", ",")}</p>
+                  </div>
+                  <div className="max-h-60 overflow-y-auto space-y-2">
+                    {historico.length === 0 ? (
+                      <p className="text-slate-400 text-sm">Nenhuma compra registrada.</p>
+                    ) : (
+                      historico.map((valor, index) => (
+                        <div
+                          key={`${selectedClient.id}-purchase-${index}`}
+                          className="flex justify-between items-center bg-navy-700 rounded-md px-3 py-2 text-sm"
+                        >
+                          <span className="text-slate-300">Compra {index + 1}</span>
+                          <span className="text-white">R$ {valor.toFixed(2).replace(".", ",")}</span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              );
+            })()
+          ) : (
+            <p className="text-slate-400 text-sm">Selecione um cliente para visualizar o histórico.</p>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
